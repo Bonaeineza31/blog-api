@@ -5,6 +5,7 @@ import pool from '../db';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'defaultsecret';
 
+// 🔹 REGISTER
 export const registerUser = async (req: Request, res: Response): Promise<void> => {
   const { username, email, password } = req.body;
 
@@ -21,9 +22,18 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
       [username, email, hashedPassword]
     );
 
-    res.status(201).json({ message: 'User registered', user: result.rows[0] });
+    const user = result.rows[0];
+
+    // ✅ Generate token after registration
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1h' });
+
+    res.status(201).json({
+      message: 'User registered',
+      user,
+      token
+    });
   } catch (err: any) {
-    console.error('Register Error:', err); 
+    console.error('Register Error:', err);
     if (err.code === '23505') {
       res.status(400).json({ error: 'Username or email already exists' });
     } else {
@@ -32,6 +42,7 @@ export const registerUser = async (req: Request, res: Response): Promise<void> =
   }
 };
 
+// 🔹 LOGIN
 export const loginUser = async (req: Request, res: Response): Promise<void> => {
   const { email, password } = req.body;
 
@@ -52,13 +63,18 @@ export const loginUser = async (req: Request, res: Response): Promise<void> => {
     }
 
     const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1h' });
-    res.json({ message: 'Login successful', token });
+
+    res.json({
+      message: 'Login successful',
+      token
+    });
   } catch (err) {
-    console.error('Login Error:', err); // 🐞 log the real error
+    console.error('Login Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
 
+// 🔹 GET PROFILE
 export const getProfile = async (req: Request, res: Response): Promise<void> => {
   const userId = (req as any).userId;
 
@@ -71,7 +87,7 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
       res.json(result.rows[0]);
     }
   } catch (err) {
-    console.error('Profile Error:', err); // 🐞 log the real error
+    console.error('Profile Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 };
