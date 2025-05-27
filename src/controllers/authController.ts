@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import pool from '../db';
+import { generateOtp } from '../utils/otp';
+import { sendOtpEmail } from '../utils/emailService';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'defaultsecret';
 
@@ -90,4 +92,38 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
     console.error('Profile Error:', err);
     res.status(500).json({ error: 'Server error' });
   }
+};
+
+
+export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
+  const { email } = req.body;
+
+  if (!email) {
+    res.status(400).json({ error: 'Email is required' });
+    return;
+  }
+
+  try {
+    // check if email exists
+    const user = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    if (user.rowCount === 0) {
+      res.status(404).json({ error: 'No account with that email' });
+      return;
+    }
+
+    const otp = generateOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
+
+    await pool.query(
+      'INSERT INTO password_resets (email, otp, expires_at) VALUES ($1, $2, $3)',
+      [email, otp, expiresAt]
+    );
+
+    await sendOtpEmail(email, otp);
+
+    res.json({ message: 'OTP sent to your email' });
+  } catch (err) {
+    console.error('Forgot Password Error:', err);
+    res.status(500).json({ error: 'Server error' });
+      }
 };
