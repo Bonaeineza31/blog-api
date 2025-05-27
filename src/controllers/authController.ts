@@ -160,3 +160,50 @@ export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
     res.status(500).json({ error: 'Server error' });
   }
 };
+
+
+export const resetPassword = async (req: Request, res: Response): Promise<void> => {
+  const { email, otp, newPassword } = req.body;
+
+  if (!email || !otp || !newPassword) {
+    res.status(400).json({ error: 'Email, OTP, and new password are required' });
+    return;
+  }
+
+  try {
+  
+    const result = await pool.query(
+      'SELECT * FROM password_resets WHERE email = $1 AND otp = $2 ORDER BY expires_at DESC LIMIT 1',
+      [email, otp]
+    );
+
+    if (result.rowCount === 0) {
+      res.status(400).json({ error: 'Invalid OTP' });
+      return;
+    }
+
+    const reset = result.rows[0];
+    const now = new Date();
+
+    if (new Date(reset.expires_at) < now) {
+      res.status(400).json({ error: 'OTP has expired' });
+      return;
+    }
+
+    
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+
+    await pool.query(
+      'UPDATE users SET password = $1 WHERE email = $2',
+      [hashedPassword, email]
+    );
+
+    await pool.query('DELETE FROM password_resets WHERE email = $1', [email]);
+
+    res.json({ message: 'Password reset successful' });
+  } catch (err) {
+    console.error('Reset Password Error:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+};
