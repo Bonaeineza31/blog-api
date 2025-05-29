@@ -1,209 +1,42 @@
-import { Request, Response } from 'express';
-import bcrypt from 'bcrypt';
-import jwt from 'jsonwebtoken';
-import pool from '../db';
-import { generateOtp } from '../utils/otp';
-import { sendOtpEmail } from '../utils/emailService';
+// src/controllers/auth.controller.ts
 
-const JWT_SECRET = process.env.JWT_SECRET || 'defaultsecret';
+import { Request, Response, NextFunction } from 'express';
+import * as authService from '../services/authservice';
+import { asyncHandler } from '../middlewares/errorHandling';
 
-// 🔹 REGISTER
-export const registerUser = async (req: Request, res: Response): Promise<void> => {
-  const { username, email, password } = req.body;
+// 🔹 Register User
+export const registerUser = asyncHandler(async (req: Request, res: Response) => {
+  const result = await authService.register(req.body);
+  res.status(201).json(result);
+});
 
-  if (!username || !email || !password) {
-    res.status(400).json({ error: 'All fields are required' });
-    return;
-  }
+// 🔹 Login User
+export const loginUser = asyncHandler(async (req: Request, res: Response) => {
+  const result = await authService.login(req.body);
+  res.json(result);
+});
 
-  try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    const result = await pool.query(
-      'INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING id, username, email',
-      [username, email, hashedPassword]
-    );
-
-    const user = result.rows[0];
-
-    // ✅ Generate token after registration
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1h' });
-
-    res.status(201).json({
-      message: 'User registered',
-      user,
-      token
-    });
-  } catch (err: any) {
-    console.error('Register Error:', err);
-    if (err.code === '23505') {
-      res.status(400).json({ error: 'Username or email already exists' });
-    } else {
-      res.status(500).json({ error: 'Server error' });
-    }
-  }
-};
-
-// 🔹 LOGIN
-export const loginUser = async (req: Request, res: Response): Promise<void> => {
-  const { email, password } = req.body;
-
-  try {
-    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-
-    if (result.rowCount === 0) {
-      res.status(401).json({ error: 'Invalid credentials' });
-      return;
-    }
-
-    const user = result.rows[0];
-    const match = await bcrypt.compare(password, user.password);
-
-    if (!match) {
-      res.status(401).json({ error: 'Invalid credentials' });
-      return;
-    }
-
-    const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1h' });
-
-    res.json({
-      message: 'Login successful',
-      token
-    });
-  } catch (err) {
-    console.error('Login Error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-};
-
-// 🔹 GET PROFILE
-export const getProfile = async (req: Request, res: Response): Promise<void> => {
+// 🔹 Get Profile
+export const getProfile = asyncHandler(async (req: Request, res: Response) => {
   const userId = (req as any).userId;
+  const result = await authService.getProfile(userId);
+  res.json(result);
+});
 
-  try {
-    const result = await pool.query('SELECT id, username, email FROM users WHERE id = $1', [userId]);
+// 🔹 Forgot Password
+export const forgotPassword = asyncHandler(async (req: Request, res: Response) => {
+  const result = await authService.forgotPassword(req.body.email);
+  res.json(result);
+});
 
-    if (result.rowCount === 0) {
-      res.status(404).json({ error: 'User not found' });
-    } else {
-      res.json(result.rows[0]);
-    }
-  } catch (err) {
-    console.error('Profile Error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-};
+// 🔹 Verify OTP
+export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
+  const result = await authService.verifyOtp(req.body);
+  res.json(result);
+});
 
-
-export const forgotPassword = async (req: Request, res: Response): Promise<void> => {
-  const { email } = req.body;
-
-  if (!email) {
-    res.status(400).json({ error: 'Email is required' });
-    return;
-  }
-
-  try {
-    // check if email exists
-    const user = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
-    if (user.rowCount === 0) {
-      res.status(404).json({ error: 'No account with that email' });
-      return;
-    }
-
-    const otp = generateOtp();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes from now
-
-    await pool.query(
-      'INSERT INTO password_resets (email, otp, expires_at) VALUES ($1, $2, $3)',
-      [email, otp, expiresAt]
-    );
-
-    await sendOtpEmail(email, otp);
-
-    res.json({ message: 'OTP sent to your email' });
-  } catch (err) {
-    console.error('Forgot Password Error:', err);
-    res.status(500).json({ error: 'Server error' });
-      }
-};
-export const verifyOtp = async (req: Request, res: Response): Promise<void> => {
-  const { email, otp } = req.body;
-
-  if (!email || !otp) {
-    res.status(400).json({ error: 'Email and OTP are required' });
-    return;
-  }
-
-  try {
-    const result = await pool.query(
-      'SELECT * FROM password_resets WHERE email = $1 AND otp = $2 ORDER BY expires_at DESC LIMIT 1',
-      [email, otp]
-    );
-
-    if (result.rowCount === 0) {
-      res.status(400).json({ error: 'Invalid OTP' });
-      return;
-    }
-
-    const reset = result.rows[0];
-    const now = new Date();
-
-    if (new Date(reset.expires_at) < now) {
-      res.status(400).json({ error: 'OTP has expired' });
-      return;
-    }
-
-    res.json({ message: 'OTP verified successfully' });
-  } catch (err) {
-    console.error('Verify OTP Error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-};
-
-
-export const resetPassword = async (req: Request, res: Response): Promise<void> => {
-  const { email, otp, newPassword } = req.body;
-
-  if (!email || !otp || !newPassword) {
-    res.status(400).json({ error: 'Email, OTP, and new password are required' });
-    return;
-  }
-
-  try {
-  
-    const result = await pool.query(
-      'SELECT * FROM password_resets WHERE email = $1 AND otp = $2 ORDER BY expires_at DESC LIMIT 1',
-      [email, otp]
-    );
-
-    if (result.rowCount === 0) {
-      res.status(400).json({ error: 'Invalid OTP' });
-      return;
-    }
-
-    const reset = result.rows[0];
-    const now = new Date();
-
-    if (new Date(reset.expires_at) < now) {
-      res.status(400).json({ error: 'OTP has expired' });
-      return;
-    }
-
-    
-    const hashedPassword = await bcrypt.hash(newPassword, 10);
-
-
-    await pool.query(
-      'UPDATE users SET password = $1 WHERE email = $2',
-      [hashedPassword, email]
-    );
-
-    await pool.query('DELETE FROM password_resets WHERE email = $1', [email]);
-
-    res.json({ message: 'Password reset successful' });
-  } catch (err) {
-    console.error('Reset Password Error:', err);
-    res.status(500).json({ error: 'Server error' });
-  }
-};
+// 🔹 Reset Password
+export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
+  const result = await authService.resetPassword(req.body);
+  res.json(result);
+});

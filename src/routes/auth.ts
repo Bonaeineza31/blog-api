@@ -1,17 +1,26 @@
-import express from 'express';
-import { registerUser, loginUser, getProfile } from '../controllers/authController';
-import authMiddleware from '../middlewares/authMiddleware';
-import { forgotPassword } from '../controllers/authController';
-import { verifyOtp } from '../controllers/authController';
-import { resetPassword } from '../controllers/authController';
+import { Router } from 'express';
+import {
+  registerUser,
+  loginUser,
+  getProfile,
+  forgotPassword,
+  verifyOtp,
+  resetPassword
+} from '../controllers/authController';
+import { authMiddleware } from '../middlewares/authMiddleware';
+import { validate } from '../middlewares/validateMiddleware';
+import {  registerSchema,  loginSchema, forgotPasswordSchema, resetPasswordSchema, verifyOtpSchema} from '../schema/userschema';
 
-const router = express.Router();
+const authRouter = Router();
 
-router.post('/register', registerUser);
-router.post('/login', loginUser);
-router.get('/profile', authMiddleware, getProfile); // protected
-router.post('/forgot-password', forgotPassword);
-router.post('/verify-otp', verifyOtp);
-router.post('/reset-password', resetPassword);
+// ✅ Auth Routes
+authRouter.post('/register', validate(registerSchema), registerUser);
+authRouter.post('/login', validate(loginSchema), loginUser);
+authRouter.get('/profile', authMiddleware, getProfile);
 
-export default router;
+// ✅ Password Reset Routes
+authRouter.post('/forgot-password', validate(forgotPasswordSchema), forgotPassword);
+authRouter.post('/verify-otp', validate(verifyOtpSchema), verifyOtp);
+authRouter.post('/reset-password', validate(resetPasswordSchema), resetPassword);
+
+export default authRouter;

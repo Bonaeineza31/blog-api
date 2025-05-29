@@ -19,7 +19,8 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.15.0",
     "nodemailer": "^7.0.3",
-    "pg": "^8.16.0"
+    "pg": "^8.16.0",
+    "zod": "^3.25.32"
   },
   "devDependencies": {
     "@types/bcrypt": "^5.0.2",
