@@ -29,7 +29,7 @@ export const register = async (data: { username: string; email: string; password
     [user.id, token, expiresAt]
   );
 
-  const verifyUrl = `http://localhost:5000/api/auth/verify-email/${token}`;
+  const verifyUrl = `http://localhost:5000/api/verify-email/${token}`;
   await sendEmail(email, 'Verify Your Email', `Hello ${username}, please verify your email: ${verifyUrl}`);
 
   return { message: 'User registered. Check your email for verification.' };
