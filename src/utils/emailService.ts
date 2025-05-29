@@ -1,3 +1,5 @@
+// src/utils/emailService.ts
+
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 
@@ -11,6 +13,19 @@ const transporter = nodemailer.createTransport({
   },
 });
 
+// ✅ Send generic email (e.g., verification email)
+export const sendEmail = async (to: string, subject: string, message: string): Promise<void> => {
+  const mailOptions = {
+    from: `"Blog Support" <${process.env.EMAIL_USER}>`,
+    to,
+    subject,
+    text: message,
+  };
+
+  await transporter.sendMail(mailOptions);
+};
+
+// ✅ Send OTP email (already defined)
 export const sendOtpEmail = async (email: string, otp: string): Promise<void> => {
   const mailOptions = {
     from: `"Blog Support" <${process.env.EMAIL_USER}>`,

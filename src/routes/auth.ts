@@ -1,12 +1,5 @@
 import { Router } from 'express';
-import {
-  registerUser,
-  loginUser,
-  getProfile,
-  forgotPassword,
-  verifyOtp,
-  resetPassword
-} from '../controllers/authController';
+import { registerUser, loginUser, getProfile, forgotPassword, verifyOtp, resetPassword,verifyEmail} from '../controllers/authController';
 import { authMiddleware } from '../middlewares/authMiddleware';
 import { validate } from '../middlewares/validateMiddleware';
 import {  registerSchema,  loginSchema, forgotPasswordSchema, resetPasswordSchema, verifyOtpSchema} from '../schema/userschema';
@@ -22,5 +15,6 @@ authRouter.get('/profile', authMiddleware, getProfile);
 authRouter.post('/forgot-password', validate(forgotPasswordSchema), forgotPassword);
 authRouter.post('/verify-otp', validate(verifyOtpSchema), verifyOtp);
 authRouter.post('/reset-password', validate(resetPasswordSchema), resetPassword);
+authRouter.get('/verify-email/:token', verifyEmail);
 
 export default authRouter;

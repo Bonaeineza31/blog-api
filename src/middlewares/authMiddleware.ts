@@ -16,7 +16,11 @@ export const authMiddleware = (req: Request, res: Response, next: NextFunction):
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; role: string };
-    (req as any).user = decoded; // you can define custom types later
+
+    // Attach userId and role directly to req object
+    (req as any).userId = decoded.userId;
+    (req as any).role = decoded.role;
+
     next();
   } catch (err) {
     res.status(401).json({ message: 'Invalid or expired token' });

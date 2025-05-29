@@ -10,11 +10,13 @@ export const registerUser = asyncHandler(async (req: Request, res: Response) => 
   res.status(201).json(result);
 });
 
+
 // 🔹 Login User
 export const loginUser = asyncHandler(async (req: Request, res: Response) => {
-  const result = await authService.login(req.body);
+  const result = await authService.login(req.body); // This will now throw if not verified
   res.json(result);
 });
+
 
 // 🔹 Get Profile
 export const getProfile = asyncHandler(async (req: Request, res: Response) => {
@@ -38,5 +40,11 @@ export const verifyOtp = asyncHandler(async (req: Request, res: Response) => {
 // 🔹 Reset Password
 export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
   const result = await authService.resetPassword(req.body);
+  res.json(result);
+});
+
+export const verifyEmail = asyncHandler(async (req: Request, res: Response) => {
+  const { token } = req.params;
+  const result = await authService.verifyEmail(token);
   res.json(result);
 });
